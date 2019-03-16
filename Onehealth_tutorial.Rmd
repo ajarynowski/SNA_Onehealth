@@ -1,49 +1,65 @@
+---
+title: "Analysis of In Social Networks with R"
+author:
+- Andrzej Jarynowski
+- Vitaly Belik
+output: pdf_document
 
-# The package (www.igraph.org) is maintained by Gabor Csardi and Tamas Nepusz.
-# We thanks for notes preparation Mateo Mangani, Sharon Kuhman, Michal Burdukiewicz and Katya Ognyanova
+---
+```{r, include=FALSE}
 
-install.packages("igraph","dplyr", "ggplot2", "surveillance") 
-library(ggplot2)
+# install.packages("igraph","dplyr", "ggplot2", "surveillance", "statnet") 
+
+library(igraph)
 library(dplyr)
 library(surveillance)
+#library(statnet)
+library(ggplot2)
+
+```
+
+ In this workshop we introduce an igraph  R package to analyze  social networks represented within the more general framework of disease spread. 
+
+To introduce the problem we will use the African Swine Fever spread in  Poland case. Each type of relation (pig production supply chain, wild board density, human mobility) defines a network between counties:
+_vertices_ (or _nodes_) represent counties 
+_edges_ connect adjacent vertices (possibility of transmitting infection.
+
+Modelling (outside of R)
+SIR spreadsheet
+VENSIM SIR (system dynamics)
+Python (differential equations)
+Epidemic wave (spatial propagation)
+Time series analysis (surveillance package)
+Agent Based Modelling (Netlogo http://sirsz.pl/data/materialy/szpital2.html) 
+Food outbreak investigation (https://foodrisklabs.bfr.bund.de/foodchain-lab/ )
+
+SNA In R
+Network generations
+Network plotting 
+Layouts
+Degree distribution
+Centrality
+Giant component and percolation
+Paths 
 
 
-#  ------->> Intruduction --------  
 
-v1 <- c(1, 5, 11, 33)       # Numeric vector, length 4
-v2 <- c("hello","world")    # Character vector, length 2 (a vector of strings)
+Example
 
-# Mathematical operations:
-sum(v1)      # The sum of all elements
-mean(v1)     # The average of all elements
-sd(v1)       # The standard deviation
-
-
-v1[3]             # third element of v1
-v1[2:4]           # elements 2, 3, 4 of v1
-v1[6:10] <- 6:10
-
-m <- matrix(data=1, nrow=5, ncol=4)  # same matrix as above, 5x4, full of 1s
-m <- matrix(1,5,4) 			             # same matrix as above
-dim(m)                               # What are the dimensions of m?
-
-
-plot(x=1:10, y=rep(5,10), pch=19, cex=5, col="dark red")
+Maps Generating
 
 
 
-# ================  Networks in igraph ================
+# Part 0: getting started
 
-rm(list = ls()) # Remove all the objects we created so far.
-
-library(igraph) # Load the igraph package
-
-
+We start by loading the library an playing with network
+```{r}
+library(igraph)
 #  ------->> Create networks --------
 
 g4 <- graph( edges=c(1,2, 2,3, 3,1), n=3, directed=F ) # an undirected graph with 3 edges
 # The numbers are interpreted as vertex IDs, so the edges are 1-->2, 2-->3, 3-->1
-plot(g4) # A simple plot of the network - we'll talk more about plots later
+plot(g4) # 
 
 
 #  ------->> Edge, vertex, and network attributes --------
@@ -59,7 +75,7 @@ g4[1,]
 
 # Add attributes to the network, vertices, or edges:
 V(g4)$name # automatically generated when we created the network.
-V(g4)$gender <- c("male", "male", "male", "male", "female", "female", "male")
+V(g4)$gender <- c("male", "male", "female")
 E(g4)$type <- "email" # Edge attribute, assign "email" to all edges
 E(g4)$weight <- 10    # Edge weight, setting all existing edges to 10
 
@@ -70,9 +86,13 @@ graph_attr(g4)
 
 
 
+```
+
+Multiplex networks can be read from file. The format allows us to specify various details, such as the directionality
 
 
-
+We can create or generate networks
+```{r}
 # Full graph
 fg <- make_full_graph(40)
 plot(fg, vertex.size=10, vertex.label=NA)
@@ -111,74 +131,97 @@ plot(ba, vertex.size=6, vertex.label=NA)
 zach <- graph("Zachary") # the Zachary carate club
 plot(zach, vertex.size=10, vertex.label=NA)
 
+```
+
+Networks can be read from file. Adjacency matrix allows us to specify various details, such as the directionality
+```{r}
+# matrix - dependency matrix for most likely introduction routes (transmission risk between counties)
+load("data.RData")
+
+net=graph_from_adjacency_matrix(matrix,  weighted=TRUE, mode="directed")
+
+#list - ASF introduction times to Polish counties (till 2017) with their characteristics (pig density, forest coverage, coordinates)
+
+list
+
+V(net)$names=list$county
 
 
-# ================ 3. Reading network data from files ================
+```
+To get a better understadning of the data, we can list the network attributes, for example actor attributes:
+```{r}
+V(net)$size <- 8
+V(net)$frame.color <- "white"
+V(net)$color <- "orange"
+V(net)$label <- "" 
+E(net)$arrow.mode <- 0
+plot(net)
+```
+Before performing a quantitative analysis we can plot the network, to get a first idea of its structure. We can produce a default visualization just by executing plot(net), but to make the plot more readable we will add a few details.You can set the layouts here.
 
+```{r}
 
-
-# DATASET : matrix 
-#p1[i,j]=skale*(hum*(V(net2)$lud[i]*V(net2)$lud[j])/(1+macierz[i,j])+pork*(V(net2)$swi[i]*V(net2)$swi[j])/(1+macierz[i,j])+fst*V(net2)$las[i]*V(net2)$las[j]/(1+macierz[i,j])^2)
-
-p1
-
-net=graph_from_adjacency_matrix(p1,  weighted=TRUE, mode="directed")
-
-siec=graph_from_adjacency_matrix(mac,  weighted=TRUE, mode="directed")
-
-V(siec)$names=lista$county
-
-for (i in 1:length(a[,1])) {
-  V(net)[a[i,2]]$chorzy=1
-}
-plot.igraph(net, vertex.size=0.01, vertex.label=V(siec)$names)
-
-
-
-net.bg <- sample_pa(80, 1.2) 
-V(net.bg)$size <- 8
-V(net.bg)$frame.color <- "white"
-V(net.bg)$color <- "orange"
-V(net.bg)$label <- "" 
-E(net.bg)$arrow.mode <- 0
-plot(net.bg)
-
-# You can set the layout 
-
-l <- layout_in_circle(net.bg)
-plot(net.bg, layout=l)
+l <- layout_in_circle(net)
+plot(net, layout=l)
 
 # igraph has a number of built-in layouts, including:
 
 # Randomly placed vertices
-l <- layout_randomly(net.bg)
-plot(net.bg, layout=l)
+l <- layout_randomly(net)
+plot(net, layout=l)
 
 # Circle layout
-l <- layout_in_circle(net.bg)
-plot(net.bg, layout=l)
+l <- layout_in_circle(net)
+plot(net, layout=l)
 
 # 3D sphere layout
-l <- layout_on_sphere(net.bg)
-plot(net.bg, layout=l)
+l <- layout_on_sphere(net)
+plot(net, layout=l)
 
 # The Fruchterman-Reingold force-directed algorithm 
 # Nice but slow, most often used in graphs smaller than ~1000 vertices. 
-l <- layout_with_fr(net.bg)
-plot(net.bg, layout=l)
+l <- layout_with_fr(net)
+plot(net, layout=l)
+
+
+
 
 # You will also notice that the layout is not deterministic - different runs 
 # will result in slightly different configurations. Saving the layout in l
 # allows us to get the exact same result multiple times.
 par(mfrow=c(2,2), mar=c(1,1,1,1))
-plot(net.bg, layout=layout_with_fr)
-plot(net.bg, layout=layout_with_fr)
-plot(net.bg, layout=l)
-plot(net.bg, layout=l)
+plot(net, layout=layout_with_fr)
+plot(net, layout=layout_with_fr)
+plot(net, layout=l)
+plot(net, layout=l)
 dev.off()
+```
 
-# ================ 6. Network and node descriptives ================
+In particular, we explicitly compute a layout that draws counties at geographical cooridinates.
 
+```{r}
+V(net)$x=list$x
+V(net)$y=list$y
+# coordinates (centroids of counties)
+#V(net)$District=list$District
+
+lay=matrix(data=c(V(net)$x,V(net)$y), nrow=18, ncol=2)
+
+plot.igraph(net, vertex.size=9, vertex.label=V(net)$names, vertex.label.cex=0.7, edge.arrow.size=0.3, layout=lay )
+
+# first year of outbreak
+for (i in 1:length(list[,1])) {
+  if (list$arrival_time[i]<365) {
+    V(net)[i]$first=1
+  }
+}
+plot.igraph(net, vertex.size=9, vertex.label=V(net)$names, vertex.label.cex=0.7, edge.arrow.size=0.3, vertex.color=c( "pink", "skyblue")[1+(V(net)$first==1)], layout=lay )
+
+```
+
+We can also use the metrcis to inspect the relationship between the role and group of the actors and the topology of the network.
+
+```{r}
 
 # Density
 # The proportion of present edges from all possible ties.
@@ -199,19 +242,12 @@ transitivity(as.undirected(net, mode="collapse")) # same as above
 transitivity(net, type="local")
 triad_census(net) # for directed networks
 
+```
 
 
-# Diameter (longest geodesic distance)
-# Note that edge weights are used by default, unless set to NA.
-diameter(net, directed=F, weights=NA)
-diameter(net, directed=F)
-diam <- get_diameter(net, directed=T)
-diam
+Degree distribution often reveal interesting topological structure.
 
-# Note: vertex sequences asked to behave as a vector produce numeric index of nodes
-class(diam)
-as.vector(diam)
-
+```{r }
 
 # Node degrees
 # 'degree' has a mode of 'in' for in-degree, 'out' for out-degree,
@@ -225,13 +261,15 @@ deg.dist <- degree_distribution(net, cumulative=T, mode="all")
 plot( x=0:max(deg), y=1-deg.dist, pch=19, cex=1.2, col="orange", 
       xlab="Degree", ylab="Cumulative Frequency")
 
+```
 
-# Centrality & centralization
 
-# Centrality functions (vertex level) and centralization functions (graph level).
-# The centralization functions return "res" - vertex centrality, "centralization", 
-# and "theoretical_max" - maximum centralization score for a graph of that size.
-# The centrality functions can run on a subset of nodes (set with the "vids" parameter)
+
+The objective of this part is to understand the spreding processes on networks.
+
+Centrality functions (vertex level) and centralization functions (graph level)
+
+```{r}
 
 # Degree (number of ties)
 degree(net, mode="in")
@@ -253,7 +291,10 @@ betweenness(net, directed=T, weights=NA)
 edge_betweenness(net, directed=T, weights=NA)
 centr_betw(net, directed=T, normalized=T)
 
+```
 
+To compute effective distances, we can use paths detecting algorithms. 
+```{r}
 
 # Average path length 
 # The mean of the shortest distance between each pair of nodes in the network 
@@ -266,39 +307,22 @@ distances(net) # with edge weights
 distances(net, weights=NA) # ignore weights
 
 # We can extract the distances to a node or set of nodes we are interested in.
-# Here we will get the distance of every media from the New York Times.
-dist.from.NYT <- distances(net, v=V(net)[media=="NY Times"], to=V(net), weights=NA)
+# Here we will get the distance of every counte from the first affected - bialostocki county.
+dist.from.bialystok <- distances(net, v=V(net)[names=="bialostocki"], to=V(net), weights=NA)
 
 # Set colors to plot the distances:
 oranges <- colorRampPalette(c("dark red", "gold"))
-col <- oranges(max(dist.from.NYT)+1)
-col <- col[dist.from.NYT+1]
+col <- oranges(max(dist.from.bialystok)+1)
+col <- col[dist.from.bialystok+1]
 
-plot(net, vertex.color=col, vertex.label=dist.from.NYT, edge.arrow.size=.6, 
+plot(net, vertex.color=col, vertex.label=dist.from.bialystok, edge.arrow.size=.6, 
      vertex.label.color="white")
 
 # We can also find the shortest path between specific nodes.
-# Say here between MSNBC and the New York Post:
+# Say here between bialski county (main regional hub for pig production) with source (first affected county):
 news.path <- shortest_paths(net, 
-                            from = V(net)[name=="bialostocki"], 
-                            to  = V(net)[name=="bialski"],
+                            from = V(net)[names=="bialostocki"], 
+                            to  = V(net)[names=="bialski"],
                             output = "both") # both path nodes and edges
 
-
-
-# ================ The ASF example ================
-siec=graph_from_adjacency_matrix(mac,  weighted=TRUE, mode="directed")
-V(siec)$names=lista$county
-V(siec)$x=lista$x
-V(siec)$y=lista$y
-
-
-
-lay=matrix(data=c(V(siec)$x,V(siec)$y), nrow=18, ncol=2)
-
-plot.igraph(siec, vertex.size=9, vertex.label=V(siec)$names, vertex.label.cex=0.4, layout=lay )
-plot.igraph(siec, vertex.size=9, vertex.label=V(siec)$names, vertex.label.cex=0.7, edge.arrow.size=0.3, layout=lay )
-
-
-p1[i,j]=skale*(hum*(V(net2)$lud[i]*V(net2)$lud[j])/(1+macierz[i,j])+pork*(V(net2)$swi[i]*V(net2)$swi[j])/(1+macierz[i,j])+fst*V(net2)$las[i]*V(net2)$las[j]/(1+macierz[i,j])^2)
-
+```
