@@ -6,16 +6,17 @@ author:
 output:
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 ```{r}
 
-# install.packages("igraph","dplyr", "ggplot2", "surveillance", "statnet") 
+# install.packages("igraph","dplyr", "ggplot2", "surveillance", "scales") 
 
 library(igraph)
 library(dplyr)
 library(surveillance)
-#library(statnet)
 library(ggplot2)
+library(scales)
 
 ```
 We thanks for notes preparation Mateo Mangani, Sharon Kuhman, Michal Burdukiewicz and Katya Ognyanova and Eric Kolaczyk
@@ -367,3 +368,41 @@ res <- sir(net, beta=5, gamma=1, no.sim=10)
 plot(res)
 
 ```
+
+# ASF case
+
+
+Plotting on the map
+```{r}
+map <- inner_join(Map_poland, counties_data, by = c("id" = "map_id_0"))
+
+p<-ggplot(data = map, mapping = aes(x = long, y = lat)) +
+  geom_polygon(mapping = aes(group = group, fill = pig))+ 
+  scale_fill_distiller("pig production", palette = "RdPu", breaks = pretty_breaks(n = 8), trans = "reverse")
+p
+
+```
+
+
+```{r}
+
+
+
+ fst=0.3
+ scale=0.18
+ hum=0.6
+ pork=0.7
+ for (i in 1:379){
+    for (j in (i+1):380) {
+p1[i,j]=scale*(hum*(counties_data$hum[i]*counties_data$hum[j])/(1+distance_C[i,j])+pork*(counties_data$pig[i]*counties_data$pig[j])/(1+distance_C[i,j])+fst*counties_data$forest[i]*counties_data$forest[j]/(1+distance_C[i,j])^2)
+    }
+   }
+
+Poland=graph_from_adjacency_matrix(p1,  weighted=TRUE)
+
+
+```
+
+
+
+
