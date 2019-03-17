@@ -3,10 +3,11 @@ title: "Analysis of In Social Networks with R"
 author:
 - Andrzej Jarynowski
 - Vitaly Belik
-output: pdf_document
-
+output:
+  html_document:
+    df_print: paged
 ---
-```{r, include=FALSE}
+```{r}
 
 # install.packages("igraph","dplyr", "ggplot2", "surveillance", "statnet") 
 
@@ -17,6 +18,7 @@ library(surveillance)
 library(ggplot2)
 
 ```
+We thanks for notes preparation Mateo Mangani, Sharon Kuhman, Michal Burdukiewicz and Katya Ognyanova and Eric Kolaczyk
 
  In this workshop we introduce an igraph  R package to analyze  social networks represented within the more general framework of disease spread. 
 
@@ -24,16 +26,20 @@ To introduce the problem we will use the African Swine Fever spread in  Poland c
 _vertices_ (or _nodes_) represent counties 
 _edges_ connect adjacent vertices (possibility of transmitting infection.
 
-Modelling (outside of R)
+# Modelling (outside of R)
 SIR spreadsheet
 VENSIM SIR (system dynamics)
 Python (differential equations)
+Compare standard epi-model (solve ODEs): SI, SIS, SIR, SIRS
+Compare them to network (still ODES)
+ Compare to stochastic epidemics on a network
+Run epidemics on a grid (ODES), 
 Epidemic wave (spatial propagation)
 Time series analysis (surveillance package)
 Agent Based Modelling (Netlogo http://sirsz.pl/data/materialy/szpital2.html) 
 Food outbreak investigation (https://foodrisklabs.bfr.bund.de/foodchain-lab/ )
 
-SNA In R
+# SNA In R
 Network generations
 Network plotting 
 Layouts
@@ -42,15 +48,39 @@ Centrality
 Giant component and percolation
 Paths 
 
+analyse it (degrees, other metrics, may be communities)
+export into format for visualization (using ndtv package in R)
+produce a html embeddeded visualization of the network (using ndtv package in R)
 
-
-Example
+# ASF Example
 
 Maps Generating
 
+ASF Data:
+ 	- Event Data (for say around 50 counties)
+ 	- Network based on geographical distance
+ 	[- provide human, forest, pig density for network construction?]
+ 	- Network based on the effective distance (with fitted last time parameters)
+	- Network based on the correlation of time events
+
+ Tasks: 
+	- plot the networks (only topology), compare them
+	- analyse them (degrees, centrality etc.)
+ 	- check for correlations of arrival times and effective distance network (here we will provide shortest path routine to calculate the effective shortest path)
 
 
-# Part 0: getting started
+
+```{r}
+
+# install.packages("igraph","dplyr", "ggplot2", "surveillance", "statnet") 
+
+library(igraph)
+library(dplyr)
+library(surveillance)
+#library(statnet)
+library(ggplot2)
+
+```
 
 We start by loading the library an playing with network
 ```{r}
@@ -88,10 +118,10 @@ graph_attr(g4)
 
 ```
 
-Multiplex networks can be read from file. The format allows us to specify various details, such as the directionality
+Networks can be read from file. The format allows us to specify various details, such as the directionality.
 
 
-We can create or generate networks
+We can create or generate networks.
 ```{r}
 # Full graph
 fg <- make_full_graph(40)
@@ -320,9 +350,20 @@ plot(net, vertex.color=col, vertex.label=dist.from.bialystok, edge.arrow.size=.6
 
 # We can also find the shortest path between specific nodes.
 # Say here between bialski county (main regional hub for pig production) with source (first affected county):
-news.path <- shortest_paths(net, 
+infection.path <- shortest_paths(net, 
                             from = V(net)[names=="bialostocki"], 
                             to  = V(net)[names=="bialski"],
                             output = "both") # both path nodes and edges
+infection.path
+
+res <- sir(net, beta=5, gamma=1, no.sim=10)
+plot(res)
+
+```
+
+SIR Stochastic model on network
+```{r}
+res <- sir(net, beta=5, gamma=1, no.sim=10)
+plot(res)
 
 ```
