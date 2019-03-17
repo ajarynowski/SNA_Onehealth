@@ -375,6 +375,41 @@ p<-ggplot(data = map, mapping = aes(x = long, y = lat)) +
   scale_fill_distiller("pig production", palette = "RdPu", breaks = pretty_breaks(n = 8), trans = "reverse")
 p
 
+
+hist(counties_data$pig)
+
+p<-ggplot(data = map, mapping = aes(x = long, y = lat)) +
+  geom_polygon(mapping = aes(group = group, fill = pig))+ 
+  scale_fill_distiller("pig production", palette = "RdPu", breaks = pretty_breaks(n = 8), trans = "reverse")
+p
+hist(counties_data$forest)
+p<-ggplot(data = map, mapping = aes(x = long, y = lat)) +
+  geom_polygon(mapping = aes(group = group, fill = forest))+ 
+  scale_fill_distiller("forest density", palette = "YlGn", breaks = pretty_breaks(n = 8), trans = "reverse")
+p
+p<-ggplot(data = map, mapping = aes(x = long, y = lat)) +
+  geom_polygon(mapping = aes(group = group, fill = hum))+ 
+  scale_fill_distiller("human density", breaks = pretty_breaks(n = 8), trans = "reverse")
+#linaer
+p
+#log
+p<-ggplot(data = map, mapping = aes(x = long, y = lat)) +
+  geom_polygon(mapping = aes(group = group, fill = hum))+ 
+  scale_fill_distiller("human density", breaks = pretty_breaks(n = 8), trans = "reverse")
+
+p<-ggplot(data = map, mapping = aes(x = long, y = lat)) +
+  geom_polygon(mapping = aes(group = group, fill = hum))+ 
+    scale_fill_distiller("human density", pretty_breaks(frac.log= TRUE), trans = "reverse")
+p
+
+
+p<-ggplot(data = map, mapping = aes(x = long, y = lat)) +
+  geom_polygon(mapping = aes(group = group, fill = arrival_time))+ 
+  scale_fill_distiller("arrival time", breaks = pretty_breaks(n = 8), trans = "reverse")
+
+p
+
+
 ```
 
 
@@ -392,14 +427,51 @@ p1=matrix(0, nrow=380, ncol = 380)
   for (i in 1:379){
     for (j in (i+1):380) {
 p1[i,j]=scale*(hum*(counties_data$hum[i]*counties_data$hum[j])/(1+distance_C[i,j])+pork*(counties_data$pig[i]*counties_data$pig[j])/(1+distance_C[i,j])+fst*counties_data$forest[i]*counties_data$forest[j]/(1+distance_C[i,j])^2)
+p1[j,i]=p1[i,j]
     }
-   }
+  }
+Poland_fully=graph_from_adjacency_matrix(p1,  weighted=TRUE)
+write.csv(p1, file="Pol_fully.csv")
 
-Poland=graph_from_adjacency_matrix(p1,  weighted=TRUE)
-
+readed=read.csv("Pol_fully.csv", header = FALSE)
+#treshold
+E(Poland_fully)
+Poland_smaller=delete.edges(Poland_fully, which(E(Poland_fully)$weight<0.005))
+E(Poland_smaller)
+V(Poland_smaller)$names=counties_data$county
 
 ```
 
 
 
+Infections paths
+```{r}
+
+infection.path1 <- shortest_paths(Poland_smaller, 
+                            from = V(Poland_smaller)[names=="bialostocki"], 
+                            to  = V(Poland_smaller)[names=="gostynski"],
+                            output = "both") # both path nodes and edges
+infection.path1
+
+
+#delete Sokolski county (sanitary cordon)
+Poland_mitigation=delete.vertices(Poland_smaller, 344)
+
+
+
+infection.path2 <- shortest_paths(Poland_mitigation, 
+                            from = V(Poland_mitigation)[names=="bialostocki"], 
+                            to  = V(Poland_mitigation)[names=="gostynski"],
+                            output = "both") # both path nodes and edges
+infection.path2
+
+
+
+```
+
+Other mitigation strategies
+```{r}
+?
+
+```
 
