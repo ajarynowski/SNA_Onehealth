@@ -1,0 +1,287 @@
+---
+title: "Multilayer analysis"
+author:
+- Andrzej Jarynowski (ajarynowski@gmail.com)
+date: "23 April 2019"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_float: true
+    depth: 3
+    fig_caption: yes
+    highlight: tango
+    number_sections: yes
+    theme: paper
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Multilayer analysis
+
+To introduce the problem we will use the African Swine Fever spread in  Poland case. Each type of relation (pig production supply chain, wild board density, human mobility) defines a network between counties:
+_vertices_ (or _nodes_) represent counties 
+_edges_ connect adjacent vertices (possibility of transmitting infection.
+
+We use the libraries:
+- multinet: an R package to analyze multiplex social networks represented within the more general framework of multilayer networks
+- igraph   R package to analyze  social networks represented within the more general framework of disease spread.
+
+Co-founded by OpenMultiMed Cost Action
+
+```{r}
+library(multinet)
+library(igraph)
+```
+
+
+# Transmission prediction as arrival time differnce
+
+```{r}
+
+load("data.RData")
+
+net=graph_from_adjacency_matrix(matrix,  weighted=TRUE, mode="directed")
+
+#list - ASF introduction times to Polish counties (till 2017) with their characteristics (pig density, forest coverage, coordinates)
+
+
+V(net)$names=list$county
+
+
+```
+
+
+In particular, we explicitly compute a layout that draws counties at geographical cooridinates.
+
+```{r}
+V(net)$x=list$x
+V(net)$y=list$y
+# coordinates (centroids of counties)
+#V(net)$District=list$District
+
+lay=matrix(data=c(V(net)$x,V(net)$y), nrow=18, ncol=2)
+
+plot.igraph(net, vertex.size=9, vertex.label=V(net)$names, vertex.label.cex=0.7, edge.arrow.size=0.3, layout=lay )
+
+# first year of outbreak
+for (i in 1:length(list[,1])) {
+  if (list$arrival_time[i]<365) {
+    V(net)[i]$first=1
+  }
+}
+plot.igraph(net, vertex.size=9, vertex.label=V(net)$names, vertex.label.cex=0.7, edge.arrow.size=0.3, vertex.color=c( "pink", "skyblue")[1+(V(net)$first==1)], layout=lay )
+
+```
+
+
+
+To compute effective distances, we can use paths detecting algorithms. 
+```{r}
+
+# Average path length 
+# The mean of the shortest distance between each pair of nodes in the network 
+# (in both directions for directed graphs). 
+mean_distance(net, directed=F)
+mean_distance(net, directed=T)
+
+# We can also find the length of all shortest paths in the graph:
+distances(net) # with edge weights
+distances(net, weights=NA) # ignore weights
+
+# We can extract the distances to a node or set of nodes we are interested in.
+# Here we will get the distance of every counte from the first affected - bialostocki county.
+dist.from.bialystok <- distances(net, v=V(net)[names=="bialostocki"], to=V(net), weights=NA)
+
+# Set colors to plot the distances:
+oranges <- colorRampPalette(c("dark red", "gold"))
+col <- oranges(max(dist.from.bialystok)+1)
+col <- col[dist.from.bialystok+1]
+
+plot(net, vertex.color=col, vertex.label=dist.from.bialystok, edge.arrow.size=.6, 
+     vertex.label.color="white")
+
+# We can also find the shortest path between specific nodes.
+# Say here between bialski county (main regional hub for pig production) with source (first affected county):
+infection.path <- shortest_paths(net, 
+                            from = V(net)[names=="bialostocki"], 
+                            to  = V(net)[names=="bialski"],
+                            output = "both") # both path nodes and edges
+infection.path
+
+res <- sir(net, beta=5, gamma=1, no.sim=10)
+plot(res)
+
+```
+# Multi-layer
+
+In the following we will use a network of affected counties (till 2017) with their layers (pig density, forest coverage, human densiry
+```{r}
+net <-read.ml("poland_18_kopia2.mpx")
+net
+#write_ml(net,file)
+
+```
+Layers by layers alone
+
+```{r out.width = '90%', fig.align='center', fig.align='center', tidy=FALSE}
+l <- layout.multiforce.ml(net, w_inter = 0, gravity = 1)
+plot(net, 
+     layout = l,
+     grid = c(1,3),
+     vertex.labels.cex = 0.6,
+     legend.x="bottomright", legend.inset = c(.05,.05)
+     )
+```
+# Layer-by-layer statistics
+
+A first quantitative comparison of the layers can be done computing basic network measures for each layer.
+The _summary_ computes a selection of measures on all the layers, and also on a flattened network.
+```{}
+summary(net)
+```
+
+```{r, echo=FALSE}
+kable(summary(net), digits=2, caption = "Network statistics: n: order (number of nodes), m: size (number of edges), n.comp: number of connected components, dens: density, cc: clustering coefficient, apl: average path length, dia: diameter. _flat_ is the combination of all the layers.")
+```
+
+Degree distribution
+
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+hist(degree.ml(net), breaks = max(degree.ml(net)), main="flattened", xlab="degree")
+  for (i in 1:num.layers.ml(net)) {
+    d <- degree.ml(net, layers = layers.ml(net)[[i]])
+    hist(d, breaks = max(d, na.rm = TRUE), main=layers.ml(net)[[i]], col=i, xlab="degree")
+}
+par(mfrow=c(1,1))
+```
+The Multinet package provides additional similarity functions.
+
+_layer.comparison.ml_ function that assembles a table with pair-wise comparisons:
+```{}
+layer.comparison.ml(net, method="jeffrey.degree")
+```
+
+```{r, echo=FALSE}
+kable(layer.comparison.ml(net, method="jeffrey.degree"), digits=2, caption = "Dissimilarity between degree distributions, computed using the Jeffrey dissimilarity function.")
+```
+he correlation between the degrees:
+
+```{r}
+comp <- layer.comparison.ml(net, method = "pearson.degree")
+```
+
+```{r echo = FALSE}
+kable(comp, digits=2, caption="Linear correlation between the degree of actors in the two layers, from -1 (top actors in one layer are not active in the other and vice versa) to 1 (top actors in one layer are top actors in the other and vice versa)")
+```
+Adjacent to the same other actors in different layers:
+
+```{r}
+comp <- layer.comparison.ml(net,method="jaccard.edges")
+```
+
+```{r echo = FALSE}
+kable(comp, digits=2, caption="Overlapping between edges in the two layers. 0: no actors adjacent in one layer are also adjacent in the other. 1: all pairs of actors are either adjacent in both layers or in none.")
+```
+Which county is the most central actor? Let us see how the most central actors look like when we "unpack" their centrality on the different layers:
+```{r echo=FALSE}
+kable(
+data.frame(wb=degree.ml(net,actors = names(deg),layers = "wb"),
+           hum=degree.ml(net,actors = names(deg),layers = "hum"),
+           pig=degree.ml(net,actors = names(deg),layers = "pig"),
+           flat=deg),caption = "Degree for U4 on each layer",align = "c")
+```
+#  community detection (multilayer)
+
+Communities could be defined for each layer separetely
+```{r tidy=FALSE}
+ml_clust <- glouvain.ml(net)
+
+l <- layout.multiforce.ml(net)
+
+plot(net, 
+     com = ml_clust, 
+     vertex.labels.cex = 0.6,
+     layout=l, grid = c(1,3),
+     legend.x="bottomright", legend.inset = c(.05, .05)
+     )
+```
+another method clique percolation algorithm:
+```{r tidy=FALSE}
+ml_clust <- clique.percolation.ml(net, k=5, m=2)
+
+l <- layout.multiforce.ml(net)
+
+plot(net, 
+     com = ml_clust, 
+     vertex.labels.cex = 0.5,
+     layout=l, grid = c(1,3),
+     legend.x="bottomright", legend.inset = c(.05, .05)
+     )
+```
+only with communities on at least two layers:
+```{r echo = FALSE}
+ml_clust <- clique.percolation.ml(net, k=5, m=2)
+kable(ml_clust[with(ml_clust, order(cid, actor, layer)), ])
+
+```
+Only with communities on at least two layers:
+```{r echo = FALSE}
+
+omeg=matrix(0,nrow=3,ncol=3)
+omeg[1,1]=0.6
+omeg[2,2]=0.5
+omeg[3,3]=0.3
+omeg[1,2]=0.2
+omeg[2,1]=0.2
+omeg[2,3]=0.3
+omeg[3,2]=0.3
+omeg[1,3]=0.1
+omeg[3,1]=0.1
+
+ml_clust <- glouvain.ml(net, omega=0.3)
+```
+Relevance
+
+```{r echo = FALSE}
+neighborhood_ml(net, actors = "bialski", layers = "wb")
+#  who are not connected to bialski on other layers
+xneighborhood_ml(net)
+# percentage of neighbors of U3 who are also co-workers
+relevance_ml(net)
+# redundancy between wb and pig
+connective_redundancy_ml(net)
+# percentage of neighbors of bialski who would no longer be neighbors by removing this lay
+
+```
+evolving according to the external dynamic (importing an edge from the other layer).
+
+```{r}
+models_mix <- c(evolution.er.ml(350), evolution.er.ml(200), evolution.er.ml(200))
+pr.external <- c(0.2,0.5,0.9)
+pr.internal <- c(0.8,.5,0.1)
+dependency <- omeg
+ml_generated_mix <- grow.ml(380, 650, models_mix, pr.internal, pr.external, dependency)
+# multinet::layers_ml(ml_generated_mix)
+num.edges.ml(ml_generated_mix, layers1 = "L0")
+num.edges.ml(ml_generated_mix, layers1 = "L1")
+num.edges.ml(ml_generated_mix, layers1 = "L2")
+```
+
+```{r tidy=FALSE}
+l <- layout.multiforce.ml(ml_generated_mix, w_inter = 1000, iterations = 200, gravity = .5)
+
+f <- function(x) {neighborhood.ml(ml_generated_mix, actors = x[[1]], layers = x[[2]])}
+
+plot(ml_generated_mix, 
+     vertex.labels = "", vertex.cex = apply(vertices.ml(ml_generated_mix),1,f)/3, 
+     layout = l 
+     )
+```
+
+
+
